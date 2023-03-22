@@ -1,44 +1,55 @@
 import math
 import sys
 
-def subnet_calc(ip_address, subnet_bits):
+def subnet_calc(ip_address, bits, num_hosts_per_subnet):
     # Calculate the subnet mask
-    subnet_mask = ""
-    for i in range(32):
-        if i < subnet_bits:
-            subnet_mask += "1"
+    subnet_mask_bits = 32 - bits
+    subnet_mask = [255, 255, 255, 255]
+    subnet_mask_bits_left = subnet_mask_bits
+    while subnet_mask_bits_left > 0:
+        if subnet_mask_bits_left >= 8:
+            subnet_mask[3-int(subnet_mask_bits_left/8)] = 0
+            subnet_mask_bits_left -= 8
         else:
-            subnet_mask += "0"
-    subnet_mask = [int(subnet_mask[i:i+8], 2) for i in range(0, 32, 8)]
+            subnet_mask[3-int(subnet_mask_bits_left/8)] = 256 - int(math.pow(2, 8 - subnet_mask_bits_left))
+            subnet_mask_bits_left = 0
+    subnet_mask = tuple(subnet_mask)
 
-    # Calculate the network address
-    network_address = []
-    for i in range(4):
-        network_address.append(ip_address[i] & subnet_mask[i])
+    # Calculate the number of usable hosts per subnet
+    num_usable_hosts_per_subnet = [num_hosts_per_subnet[i] - 2 for i in range(len(num_hosts_per_subnet))]
 
-    # Calculate the broadcast address
-    broadcast_address = []
-    for i in range(4):
-        broadcast_address.append(ip_address[i] | (255 - subnet_mask[i]))
+    # Calculate the number of subnets
+    num_subnets = int(math.pow(2, bits - subnet_mask_bits))
 
-    # Calculate the number of hosts per subnet
-    num_hosts = int(math.pow(2, 32 - subnet_bits)) - 2
+    # Calculate the network and broadcast addresses for each subnet
+    subnet_addresses = []
+    broadcast_addresses = []
+    network_address = list(ip_address)
+    for i in range(num_subnets):
+        # Calculate the network and broadcast address for the current subnet
+        subnet_addresses.append(tuple(network_address))
+        broadcast_address = list(network_address)
+        broadcast_address[3] += num_hosts_per_subnet[i] - 1
+        if broadcast_address[3] > 255:
+            broadcast_address[2] += int(broadcast_address[3]/256)
+            broadcast_address[3] = broadcast_address[3] % 256
+        broadcast_addresses.append(tuple(broadcast_address))
 
-    # Calculate the usable and unusable hosts
-    usable_hosts = num_hosts
-    unusable_hosts = 0
-    if num_hosts >= 2:
-        usable_hosts -= 2
-        unusable_hosts = 2
+        # Calculate the network address for the next subnet
+        network_address[3] += num_hosts_per_subnet[i]
+        if network_address[3] > 255:
+            network_address[2] += int(network_address[3]/256)
+            network_address[3] = network_address[3] % 256
 
-    # Print the results
-    print("Subnet mask: {}.{}.{}.{}".format(subnet_mask[0], subnet_mask[1], subnet_mask[2], subnet_mask[3]))
-    print("Network address: {}.{}.{}.{}".format(network_address[0], network_address[1], network_address[2], network_address[3]))
-    print("Broadcast address: {}.{}.{}.{}".format(broadcast_address[0], broadcast_address[1], broadcast_address[2], broadcast_address[3]))
-    print("Number of hosts per subnet: {}".format(num_hosts))
-    print("Usable hosts per subnet: {}".format(usable_hosts))
-    print("Unusable hosts per subnet: {}".format(unusable_hosts))
-    print("")
+    # Print the details for each subnet
+    for i in range(num_subnets):
+        print("Subnet #{}".format(i+1))
+        print("Subnet address: {}".format(subnet_addresses[i]))
+        print("Broadcast address: {}".format(broadcast_addresses[i]))
+        print("Subnet mask: {}".format(subnet_mask))
+        print("Usable hosts: {}/{}".format(num_usable_hosts_per_subnet[i], num_hosts_per_subnet[i]))
+        print("")
+
 
 
 def main():
